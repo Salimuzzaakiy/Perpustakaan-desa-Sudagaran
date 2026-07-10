@@ -112,5 +112,81 @@ def hapus_anggota(id):
     conn.close()
     return jsonify({'message': 'Anggota berhasil dihapus'})
 
+from datetime import date, timedelta
+
+# GET semua sirkulasi (riwayat pinjam-kembali)
+@app.route('/api/sirkulasi', methods=['GET'])
+def get_sirkulasi():
+    conn = get_db_connection()
+    sirkulasi = conn.execute('''
+        SELECT sirkulasi.*, koleksi.judul, anggota.nama
+        FROM sirkulasi
+        JOIN koleksi ON sirkulasi.koleksi_id = koleksi.id
+        JOIN anggota ON sirkulasi.anggota_id = anggota.id
+    ''').fetchall()
+    conn.close()
+    return jsonify([dict(row) for row in sirkulasi])
+
+# POST pinjam buku
+@app.route('/api/sirkulasi/pinjam', methods=['POST'])
+def pinjam_buku():
+    data = request.get_json()
+    koleksi_id = data['koleksi_id']
+    anggota_id = data['anggota_id']
+
+    conn = get_db_connection()
+
+    # Cek stok tersedia
+    buku = conn.execute('SELECT eksemplar_tersedia FROM koleksi WHERE id=?', (koleksi_id,)).fetchone()
+    if buku is None:
+        conn.close()
+        return jsonify({'error': 'Buku tidak ditemukan'}), 404
+    if buku['eksemplar_tersedia'] <= 0:
+        conn.close()
+        return jsonify({'error': 'Buku sedang tidak tersedia'}), 400
+
+    # Ambil durasi pinjam default dari pengaturan
+    durasi = conn.execute("SELECT value FROM pengaturan WHERE key='durasi_pinjam_default'").fetchone()
+    durasi_hari = int(durasi['value']) if durasi else 7
+    jatuh_tempo = date.today() + timedelta(days=durasi_hari)
+
+    # Insert record sirkulasi
+    conn.execute('''
+        INSERT INTO sirkulasi (koleksi_id, anggota_id, tanggal_jatuh_tempo, status)
+        VALUES (?, ?, ?, 'dipinjam')
+    ''', (koleksi_id, anggota_id, jatuh_tempo.isoformat()))
+
+    # Kurangi stok tersedia
+    conn.execute('UPDATE koleksi SET eksemplar_tersedia = eksemplar_tersedia - 1 WHERE id=?', (koleksi_id,))
+
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Buku berhasil dipinjam', 'tanggal_jatuh_tempo': jatuh_tempo.isoformat()}), 201
+
+# PUT kembalikan buku
+@app.route('/api/sirkulasi/<int:id>/kembali', methods=['PUT'])
+def kembalikan_buku(id):
+    conn = get_db_connection()
+
+    record = conn.execute('SELECT koleksi_id, status FROM sirkulasi WHERE id=?', (id,)).fetchone()
+    if record is None:
+        conn.close()
+        return jsonify({'error': 'Data peminjaman tidak ditemukan'}), 404
+    if record['status'] == 'dikembalikan':
+        conn.close()
+        return jsonify({'error': 'Buku ini sudah dikembalikan sebelumnya'}), 400
+
+    # Update status sirkulasi
+    conn.execute('''
+        UPDATE sirkulasi SET tanggal_kembali=?, status='dikembalikan' WHERE id=?
+    ''', (date.today().isoformat(), id))
+
+    # Tambah lagi stok tersedia
+    conn.execute('UPDATE koleksi SET eksemplar_tersedia = eksemplar_tersedia + 1 WHERE id=?', (record['koleksi_id'],))
+
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Buku berhasil dikembalikan'})
+
 if __name__ == '__main__':
     app.run(debug=True)
