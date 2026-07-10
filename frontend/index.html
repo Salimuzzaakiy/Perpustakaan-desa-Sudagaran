@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Perpustakaan Digital Sudagaran</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f0f0f0; }
+        form { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+        input { padding: 6px; }
+        button { padding: 6px 12px; }
+    </style>
+</head>
+<body>
+    <h1>Manajemen Koleksi</h1>
+
+    <form id="formTambah">
+        <input type="text" id="nomor_inventaris" placeholder="Nomor Inventaris" required>
+        <input type="text" id="judul" placeholder="Judul Buku" required>
+        <input type="text" id="pengarang" placeholder="Pengarang">
+        <input type="text" id="subjek" placeholder="Subjek">
+        <input type="text" id="jenjang" placeholder="Jenjang (Level 1/2/3)">
+        <button type="submit">Tambah Buku</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th><th>Judul</th><th>Pengarang</th><th>Subjek</th><th>Jenjang</th><th>Tersedia</th>
+            </tr>
+        </thead>
+        <tbody id="tabelKoleksi"></tbody>
+    </table>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000/api/koleksi';
+
+        async function muatKoleksi() {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            const tbody = document.getElementById('tabelKoleksi');
+            tbody.innerHTML = '';
+            data.forEach(buku => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${buku.id}</td>
+                        <td>${buku.judul}</td>
+                        <td>${buku.pengarang ?? '-'}</td>
+                        <td>${buku.subjek ?? '-'}</td>
+                        <td>${buku.jenjang ?? '-'}</td>
+                        <td>${buku.eksemplar_tersedia}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        document.getElementById('formTambah').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const bukuBaru = {
+                nomor_inventaris: document.getElementById('nomor_inventaris').value,
+                judul: document.getElementById('judul').value,
+                pengarang: document.getElementById('pengarang').value,
+                subjek: document.getElementById('subjek').value,
+                jenjang: document.getElementById('jenjang').value
+            };
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bukuBaru)
+            });
+            e.target.reset();
+            muatKoleksi();
+        });
+
+        muatKoleksi();
+    </script>
+</body>
+</html>
