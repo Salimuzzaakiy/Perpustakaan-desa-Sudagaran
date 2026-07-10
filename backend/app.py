@@ -114,7 +114,7 @@ def hapus_anggota(id):
 
 from datetime import date, timedelta
 
-# GET semua sirkulasi (riwayat pinjam-kembali)
+# GET semua riwayat pinjam-kembali
 @app.route('/api/sirkulasi', methods=['GET'])
 def get_sirkulasi():
     conn = get_db_connection()
@@ -176,7 +176,7 @@ def kembalikan_buku(id):
         conn.close()
         return jsonify({'error': 'Buku ini sudah dikembalikan sebelumnya'}), 400
 
-    # Update status sirkulasi
+    # Update status sirkulasi 
     conn.execute('''
         UPDATE sirkulasi SET tanggal_kembali=?, status='dikembalikan' WHERE id=?
     ''', (date.today().isoformat(), id))
@@ -187,6 +187,35 @@ def kembalikan_buku(id):
     conn.commit()
     conn.close()
     return jsonify({'message': 'Buku berhasil dikembalikan'})
+
+# GET semua riwayat kunjungan
+@app.route('/api/kunjungan', methods=['GET'])
+def get_kunjungan():
+    conn = get_db_connection()
+    kunjungan = conn.execute('''
+        SELECT kunjungan.*, anggota.nama AS nama_anggota
+        FROM kunjungan
+        LEFT JOIN anggota ON kunjungan.anggota_id = anggota.id
+    ''').fetchall()
+    conn.close()
+    return jsonify([dict(row) for row in kunjungan])
+
+# POST catat kunjungan baru
+@app.route('/api/kunjungan', methods=['POST'])
+def catat_kunjungan():
+    data = request.get_json()
+    conn = get_db_connection()
+    conn.execute('''
+        INSERT INTO kunjungan (anggota_id, nama_pengunjung, keperluan)
+        VALUES (?, ?, ?)
+    ''', (
+        data.get('anggota_id'),  # boleh NULL jika bukan anggota
+        data.get('nama_pengunjung'),  # diisi jika bukan anggota terdaftar
+        data.get('keperluan')
+    ))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Kunjungan berhasil dicatat'}), 201
 
 if __name__ == '__main__':
     app.run(debug=True)
