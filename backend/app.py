@@ -13,7 +13,7 @@ def get_db_connection():
 def home():
     return 'Perpustakaan Digital Sudagaran'
 
-# GET semua koleksi
+# GET koleksi
 @app.route('/api/koleksi', methods=['GET'])
 def get_koleksi():
     conn = get_db_connection()
@@ -62,6 +62,55 @@ def hapus_koleksi(id):
     conn.commit()
     conn.close()
     return jsonify({'message': 'Koleksi berhasil dihapus'})
+
+# GET semua anggota
+@app.route('/api/anggota', methods=['GET'])
+def get_anggota():
+    conn = get_db_connection()
+    anggota = conn.execute('SELECT * FROM anggota').fetchall()
+    conn.close()
+    return jsonify([dict(row) for row in anggota])
+
+# POST tambah anggota baru
+@app.route('/api/anggota', methods=['POST'])
+def tambah_anggota():
+    data = request.get_json()
+    conn = get_db_connection()
+    conn.execute('''
+        INSERT INTO anggota (nomor_anggota, nama, jenis_kelamin, no_kontak, asal, keterangan)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (
+        data['nomor_anggota'], data['nama'], data.get('jenis_kelamin'),
+        data.get('no_kontak'), data.get('asal'), data.get('keterangan')
+    ))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Anggota berhasil ditambahkan'}), 201
+
+# PUT update anggota
+@app.route('/api/anggota/<int:id>', methods=['PUT'])
+def update_anggota(id):
+    data = request.get_json()
+    conn = get_db_connection()
+    conn.execute('''
+        UPDATE anggota SET nama=?, jenis_kelamin=?, no_kontak=?, asal=?, keterangan=?
+        WHERE id=?
+    ''', (
+        data.get('nama'), data.get('jenis_kelamin'), data.get('no_kontak'),
+        data.get('asal'), data.get('keterangan'), id
+    ))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Anggota berhasil diupdate'})
+
+# DELETE anggota
+@app.route('/api/anggota/<int:id>', methods=['DELETE'])
+def hapus_anggota(id):
+    conn = get_db_connection()
+    conn.execute('DELETE FROM anggota WHERE id=?', (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Anggota berhasil dihapus'})
 
 if __name__ == '__main__':
     app.run(debug=True)
