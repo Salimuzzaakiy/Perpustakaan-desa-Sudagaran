@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Manajemen Anggota - Perpustakaan Sudagaran</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f0f0f0; }
+        form { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+        input { padding: 6px; }
+        button { padding: 6px 12px; }
+        nav { margin-bottom: 20px; }
+        nav a { margin-right: 15px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">Koleksi</a>
+        <a href="anggota.html">Anggota</a>
+    </nav>
+
+    <h1>Manajemen Anggota - Perpustakaan Sudagaran</h1>
+
+    <form id="formTambah">
+        <input type="text" id="nomor_anggota" placeholder="Nomor Anggota" required>
+        <input type="text" id="nama" placeholder="Nama" required>
+        <input type="text" id="jenis_kelamin" placeholder="Jenis Kelamin">
+        <input type="text" id="no_kontak" placeholder="No. Kontak">
+        <input type="text" id="asal" placeholder="Asal Sekolah/Instansi">
+        <button type="submit">Tambah Anggota</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th><th>No. Anggota</th><th>Nama</th><th>Jenis Kelamin</th><th>Kontak</th><th>Asal</th><th>Bergabung</th>
+            </tr>
+        </thead>
+        <tbody id="tabelAnggota"></tbody>
+    </table>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000/api/anggota';
+
+        async function muatAnggota() {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            const tbody = document.getElementById('tabelAnggota');
+            tbody.innerHTML = '';
+            data.forEach(a => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${a.id}</td>
+                        <td>${a.nomor_anggota}</td>
+                        <td>${a.nama}</td>
+                        <td>${a.jenis_kelamin ?? '-'}</td>
+                        <td>${a.no_kontak ?? '-'}</td>
+                        <td>${a.asal ?? '-'}</td>
+                        <td>${a.tanggal_bergabung}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        document.getElementById('formTambah').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const anggotaBaru = {
+                nomor_anggota: document.getElementById('nomor_anggota').value,
+                nama: document.getElementById('nama').value,
+                jenis_kelamin: document.getElementById('jenis_kelamin').value,
+                no_kontak: document.getElementById('no_kontak').value,
+                asal: document.getElementById('asal').value
+            };
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(anggotaBaru)
+            });
+            e.target.reset();
+            muatAnggota();
+        });
+
+        muatAnggota();
+    </script>
+</body>
+</html>
