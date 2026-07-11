@@ -54,4 +54,4 @@ CREATE TABLE IF NOT EXISTS pengaturan (
 );
 
 INSERT OR IGNORE INTO pengaturan (key, value) VALUES ('durasi_pinjam_default', '7');
-INSERT OR IGNORE INTO pengaturan (key, value) VALUES ('maks_buku_per_orang', '3');
+INSERT OR IGNORE INTO pengaturan (key, value) VALUES ('maks_buku_per_orang', '3');b 

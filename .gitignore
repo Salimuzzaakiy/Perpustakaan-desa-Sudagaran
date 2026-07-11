@@ -207,7 +207,29 @@ tempCodeRunnerFile.py
 .ruff_cache/
 
 # PyPI configuration file
-.pypirc
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pypirc
 
 # Marimo
 marimo/_static/
