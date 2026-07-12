@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Sirkulasi - Perpustakaan Sudagaran</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f0f0f0; }
+        form { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        select, button { padding: 6px; }
+        nav { margin-bottom: 20px; }
+        nav a { margin-right: 15px; }
+        .status-dipinjam { color: #b8860b; font-weight: bold; }
+        .status-dikembalikan { color: green; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">Koleksi</a>
+        <a href="anggota.html">Anggota</a>
+        <a href="sirkulasi.html">Sirkulasi</a>
+    </nav>
+
+    <h1>Pinjam & Kembali</h1>
+
+    <form id="formPinjam">
+        <select id="koleksi_id" required></select>
+        <select id="anggota_id" required></select>
+        <button type="submit">Pinjamkan Buku</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th><th>Judul</th><th>Peminjam</th><th>Tgl Pinjam</th><th>Jatuh Tempo</th><th>Tgl Kembali</th><th>Status</th><th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody id="tabelSirkulasi"></tbody>
+    </table>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:5000/api';
+
+        async function muatDropdown() {
+            const koleksi = await (await fetch(`${API_BASE}/koleksi`)).json();
+            const anggota = await (await fetch(`${API_BASE}/anggota`)).json();
+
+            const selectKoleksi = document.getElementById('koleksi_id');
+            selectKoleksi.innerHTML = koleksi
+                .filter(k => k.eksemplar_tersedia > 0)
+                .map(k => `<option value="${k.id}">${k.judul} (tersedia: ${k.eksemplar_tersedia})</option>`)
+                .join('');
+
+            const selectAnggota = document.getElementById('anggota_id');
+            selectAnggota.innerHTML = anggota
+                .map(a => `<option value="${a.id}">${a.nama} (${a.nomor_anggota})</option>`)
+                .join('');
+        }
+
+        async function muatSirkulasi() {
+            const res = await fetch(`${API_BASE}/sirkulasi`);
+            const data = await res.json();
+            const tbody = document.getElementById('tabelSirkulasi');
+            tbody.innerHTML = '';
+            data.forEach(s => {
+                const tombolKembali = s.status === 'dipinjam'
+                    ? `<button onclick="kembalikanBuku(${s.id})">Kembalikan</button>`
+                    : '-';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${s.id}</td>
+                        <td>${s.judul}</td>
+                        <td>${s.nama}</td>
+                        <td>${s.tanggal_pinjam}</td>
+                        <td>${s.tanggal_jatuh_tempo}</td>
+                        <td>${s.tanggal_kembali ?? '-'}</td>
+                        <td class="status-${s.status}">${s.status}</td>
+                        <td>${tombolKembali}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        document.getElementById('formPinjam').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                koleksi_id: parseInt(document.getElementById('koleksi_id').value),
+                anggota_id: parseInt(document.getElementById('anggota_id').value)
+            };
+            const res = await fetch(`${API_BASE}/sirkulasi/pinjam`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const hasil = await res.json();
+            if (!res.ok) {
+                alert(hasil.error);
+                return;
+            }
+            await muatDropdown();
+            await muatSirkulasi();
+        });
+
+        async function kembalikanBuku(id) {
+            await fetch(`${API_BASE}/sirkulasi/${id}/kembali`, { method: 'PUT' });
+            await muatDropdown();
+            await muatSirkulasi();
+        }
+
+        muatDropdown();
+        muatSirkulasi();
+    </script>
+</body>
+</html>

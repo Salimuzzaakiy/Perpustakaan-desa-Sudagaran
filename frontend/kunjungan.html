@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title> Kunjungan </title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f0f0f0; }
+        form { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        select, input, button { padding: 6px; }
+        nav { margin-bottom: 20px; }
+        nav a { margin-right: 15px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">Koleksi</a>
+        <a href="anggota.html">Anggota</a>
+        <a href="sirkulasi.html">Sirkulasi</a>
+        <a href="kunjungan.html">Kunjungan</a>
+    </nav>
+
+    <h1>Catat Kunjungan</h1>
+
+    <form id="formKunjungan">
+        <label><input type="radio" name="tipe" value="anggota" checked> Anggota Terdaftar</label>
+        <label><input type="radio" name="tipe" value="baru"> Pengunjung Baru</label>
+
+        <select id="anggota_id"></select>
+        <input type="text" id="nama_pengunjung" placeholder="Nama Pengunjung Baru" style="display:none">
+
+        <input type="text" id="keperluan" placeholder="Keperluan (mis. Membaca di tempat)" required>
+        <button type="submit">Catat Kunjungan</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Nama</th><th>Tanggal</th><th>Keperluan</th></tr>
+        </thead>
+        <tbody id="tabelKunjungan"></tbody>
+    </table>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:5000/api';
+
+        // Toggle pilih anggota atau isi nama baru
+        document.querySelectorAll('input[name="tipe"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const isAnggota = e.target.value === 'anggota';
+                document.getElementById('anggota_id').style.display = isAnggota ? 'inline' : 'none';
+                document.getElementById('nama_pengunjung').style.display = isAnggota ? 'none' : 'inline';
+            });
+        });
+
+        async function muatDropdownAnggota() {
+            const anggota = await (await fetch(`${API_BASE}/anggota`)).json();
+            document.getElementById('anggota_id').innerHTML = anggota
+                .map(a => `<option value="${a.id}">${a.nama} (${a.nomor_anggota})</option>`)
+                .join('');
+        }
+
+        async function muatKunjungan() {
+            const res = await fetch(`${API_BASE}/kunjungan`);
+            const data = await res.json();
+            const tbody = document.getElementById('tabelKunjungan');
+            tbody.innerHTML = '';
+            data.forEach(k => {
+                const nama = k.nama_anggota ?? k.nama_pengunjung ?? '-';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${k.id}</td>
+                        <td>${nama}</td>
+                        <td>${k.tanggal_kunjungan}</td>
+                        <td>${k.keperluan ?? '-'}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        document.getElementById('formKunjungan').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const isAnggota = document.querySelector('input[name="tipe"]:checked').value === 'anggota';
+            const payload = {
+                keperluan: document.getElementById('keperluan').value
+            };
+            if (isAnggota) {
+                payload.anggota_id = parseInt(document.getElementById('anggota_id').value);
+            } else {
+                payload.nama_pengunjung = document.getElementById('nama_pengunjung').value;
+            }
+            await fetch(`${API_BASE}/kunjungan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            e.target.reset();
+            muatKunjungan();
+        });
+
+        muatDropdownAnggota();
+        muatKunjungan();
+    </script>
+</body>
+</html>
