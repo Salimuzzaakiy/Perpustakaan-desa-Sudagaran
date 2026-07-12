@@ -22,6 +22,8 @@
         <a href="sirkulasi.html">Sirkulasi</a>
         <a href="kunjungan.html">Kunjungan</a>
         <a href="dashboard.html">Dashboard</a>
+        <a href="pengaturan.html">Pengaturan</a>
+        <a href="#" onclick="logout()">Logout</a>
     </nav>
 
     <h1>Manajemen Anggota - Perpustakaan Sudagaran</h1>
@@ -45,6 +47,9 @@
     </table>
 
     <script>
+        if (localStorage.getItem('adminLoggedIn') !== 'true') {
+    window.location.href = 'login.html';
+}
         const API_URL = 'http://127.0.0.1:5000/api/anggota';
 
         async function muatAnggota() {
@@ -86,6 +91,12 @@
         });
 
         muatAnggota();
+        
+        function logout() {
+            localStorage.removeItem('adminLoggedIn');
+            localStorage.removeItem('adminUsername');
+            window.location.href = 'login.html';
+        }
     </script>
 </body>
 </html>

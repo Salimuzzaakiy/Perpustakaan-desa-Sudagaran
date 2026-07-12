@@ -1,12 +1,51 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 import sqlite3
 from datetime import date, timedelta
 from werkzeug.security import check_password_hash
+import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app)
 DB_NAME = 'perpustakaan.db'
+
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'pdf'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Endpoint untuk mengunggah file
+@app.route('/api/koleksi/<int:id>/upload', methods=['POST'])
+def upload_soft_file(id):
+    if 'file' not in request.files:
+        return jsonify({'error': 'Tidak ada file yang dikirim'}), 400
+
+    file = request.files['file']
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'File harus berformat PDF'}), 400
+
+    filename = secure_filename(f"koleksi_{id}_{file.filename}")
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(filepath)
+
+    conn = get_db_connection()
+    conn.execute('UPDATE koleksi SET file_digital=? WHERE id=?', (filepath, id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({'message': 'File berhasil diunggah', 'path': filepath})
+
+#Endpoint cek file
+@app.route('/api/koleksi/<int:id>/file', methods=['GET'])
+def lihat_info_buku(id):
+    conn = get_db_connection()
+    buku = conn.execute('SELECT file_digital FROM koleksi WHERE id=?', (id,)).fetchone()
+    conn.close()
+    if buku is None or not buku['file_digital']:
+        return jsonify({'error': 'Info buku belum tersedia'}), 404
+    return send_file(buku['file_digital'])
 
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
@@ -31,6 +70,10 @@ def login():
         return jsonify({'error': 'Username atau password salah'}), 401
 
     return jsonify({'message': 'Login berhasil', 'username': admin['username']})
+def generate_nomor_panggil(nomor_klasifikasi, pengarang, judul):
+    tiga_huruf = pengarang[:3].upper() if pengarang else 'XXX'
+    huruf_judul = judul[0].lower() if judul else 'x'
+    return f"{nomor_klasifikasi} {tiga_huruf} {huruf_judul}"
 
 # GET koleksi
 @app.route('/api/koleksi', methods=['GET'])
@@ -44,18 +87,21 @@ def get_koleksi():
 @app.route('/api/koleksi', methods=['POST'])
 def tambah_koleksi():
     data = request.get_json()
+    nomor_panggil = generate_nomor_panggil(
+        data.get('nomor_klasifikasi', ''), data.get('pengarang', ''), data['judul']
+    )
     conn = get_db_connection()
     conn.execute('''
-        INSERT INTO koleksi (nomor_inventaris, judul, pengarang, penerbit, tahun_terbit, jumlah_eksemplar, eksemplar_tersedia, subjek, sumber, jenjang)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO koleksi (nomor_inventaris, nomor_panggil, judul, pengarang, penerbit, tahun_terbit, jumlah_eksemplar, eksemplar_tersedia, subjek, sumber, jenjang)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
-        data['nomor_inventaris'], data['judul'], data.get('pengarang'), data.get('penerbit'),
+        data['nomor_inventaris'], nomor_panggil, data['judul'], data.get('pengarang'), data.get('penerbit'),
         data.get('tahun_terbit'), data.get('jumlah_eksemplar', 1), data.get('jumlah_eksemplar', 1),
         data.get('subjek'), data.get('sumber'), data.get('jenjang')
     ))
     conn.commit()
     conn.close()
-    return jsonify({'message': 'Koleksi berhasil ditambahkan'}), 201
+    return jsonify({'message': 'Koleksi berhasil ditambahkan', 'nomor_panggil': nomor_panggil}), 201
 
 # PUT update koleksi berdasarkan ID
 @app.route('/api/koleksi/<int:id>', methods=['PUT'])
@@ -163,6 +209,17 @@ def pinjam_buku():
     if buku['eksemplar_tersedia'] <= 0:
         conn.close()
         return jsonify({'error': 'Buku sedang tidak tersedia'}), 400
+    
+    # Cek jumlah buku yang sedang dipinjam anggota ini
+    maks = conn.execute("SELECT value FROM pengaturan WHERE key='maks_buku_per_orang'").fetchone()
+    batas_maks = int(maks['value']) if maks else 3
+    jumlah_dipinjam = conn.execute(
+        "SELECT COUNT(*) as jumlah FROM sirkulasi WHERE anggota_id=? AND status='dipinjam'",
+        (anggota_id,)
+    ).fetchone()['jumlah']
+    if jumlah_dipinjam >= batas_maks:
+        conn.close()
+        return jsonify({'error': f'Anggota ini sudah mencapai batas maksimal {batas_maks} buku dipinjam'}), 400
 
     # Ambil durasi pinjam default dari pengaturan
     durasi = conn.execute("SELECT value FROM pengaturan WHERE key='durasi_pinjam_default'").fetchone()
@@ -235,6 +292,24 @@ def catat_kunjungan():
     conn.commit()
     conn.close()
     return jsonify({'message': 'Kunjungan berhasil dicatat'}), 201
+
+# GET semua pengaturan
+@app.route('/api/pengaturan', methods=['GET'])
+def get_pengaturan():
+    conn = get_db_connection()
+    pengaturan = conn.execute('SELECT * FROM pengaturan').fetchall()
+    conn.close()
+    return jsonify({row['key']: row['value'] for row in pengaturan})
+
+# PUT update satu pengaturan
+@app.route('/api/pengaturan/<key>', methods=['PUT'])
+def update_pengaturan(key):
+    data = request.get_json()
+    conn = get_db_connection()
+    conn.execute('UPDATE pengaturan SET value=? WHERE key=?', (data['value'], key))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': 'Pengaturan berhasil diperbarui'})
 
 if __name__ == '__main__':
     app.run(debug=True)

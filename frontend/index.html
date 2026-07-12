@@ -22,6 +22,8 @@
         <a href="sirkulasi.html">Sirkulasi</a>
         <a href="kunjungan.html">Kunjungan</a>
         <a href="dashboard.html">Dashboard</a>
+        <a href="pengaturan.html">Pengaturan</a>
+        <a href="#" onclick="logout()">Logout</a>
     </nav>
 
     <h1>Manajemen Koleksi</h1>
@@ -32,20 +34,41 @@
         <input type="text" id="pengarang" placeholder="Pengarang">
         <input type="text" id="subjek" placeholder="Subjek">
         <input type="text" id="jenjang" placeholder="Jenjang (Level 1/2/3)">
+        <input type="text" id="nomor_klasifikasi" placeholder="No. Klasifikasi (mis. 813)" required>
         <button type="submit">Tambah Buku</button>
     </form>
 
     <table>
         <thead>
             <tr>
-                <th>ID</th><th>Judul</th><th>Pengarang</th><th>Subjek</th><th>Jenjang</th><th>Tersedia</th>
+                <th>ID</th><th>Nomor Panggil</th><th>Judul</th><th>Pengarang</th><th>Subjek</th><th>Jenjang</th><th>Tersedia</th><th>Info Buku</th>
             </tr>
         </thead>
         <tbody id="tabelKoleksi"></tbody>
     </table>
 
     <script>
+        if (localStorage.getItem('adminLoggedIn') !== 'true') {
+    window.location.href = 'login.html';
+}
         const API_URL = 'http://127.0.0.1:5000/api/koleksi';
+
+        async function uploadFile(id) {
+    const fileInput = document.getElementById(`file_${id}`);
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    const res = await fetch(`http://127.0.0.1:5000/api/koleksi/${id}/upload`, {
+        method: 'POST',
+        body: formData
+    });
+    const hasil = await res.json();
+    if (!res.ok) {
+        alert(hasil.error);
+        return;
+    }
+    muatKoleksi();
+}
 
         async function muatKoleksi() {
             const res = await fetch(API_URL);
@@ -56,11 +79,19 @@
                 tbody.innerHTML += `
                     <tr>
                         <td>${buku.id}</td>
+                        <td>${buku.nomor_panggil ?? '-'}</td>
                         <td>${buku.judul}</td>
                         <td>${buku.pengarang ?? '-'}</td>
                         <td>${buku.subjek ?? '-'}</td>
                         <td>${buku.jenjang ?? '-'}</td>
                         <td>${buku.eksemplar_tersedia}</td>
+                        <td>
+            ${buku.file_digital 
+                ? ` <a href="http://127.0.0.1:5000/api/koleksi/${buku.id}/file" target="_blank">Lihat</a>` 
+                : `<input type="file" id="file_${buku.id}" accept=".pdf" style="display:none" onchange="uploadFile(${buku.id})">
+                   <button onclick="document.getElementById('file_${buku.id}').click()">Upload</button>`
+            }
+        </td>
                     </tr>
                 `;
             });
@@ -70,6 +101,7 @@
             e.preventDefault();
             const bukuBaru = {
                 nomor_inventaris: document.getElementById('nomor_inventaris').value,
+                nomor_klasifikasi: document.getElementById('nomor_klasifikasi').value,
                 judul: document.getElementById('judul').value,
                 pengarang: document.getElementById('pengarang').value,
                 subjek: document.getElementById('subjek').value,
@@ -85,6 +117,12 @@
         });
 
         muatKoleksi();
+
+         function logout() {
+            localStorage.removeItem('adminLoggedIn');
+            localStorage.removeItem('adminUsername');
+            window.location.href = 'login.html';
+        }
     </script>
 </body>
 </html>

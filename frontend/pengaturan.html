@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Pengaturan - Perpustakaan Sudagaran</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        nav { margin-bottom: 20px; }
+        nav a { margin-right: 15px; }
+        form { display: flex; flex-direction: column; gap: 16px; max-width: 400px; margin-top: 20px; }
+        label { font-weight: bold; }
+        input { padding: 8px; margin-top: 4px; }
+        button { padding: 10px; background: #2c3e50; color: white; border: none; border-radius: 4px; cursor: pointer; width: fit-content; }
+        #pesanSukses { color: green; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">Koleksi</a>
+        <a href="anggota.html">Anggota</a>
+        <a href="sirkulasi.html">Sirkulasi</a>
+        <a href="kunjungan.html">Kunjungan</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="pengaturan.html">Pengaturan</a>
+        <a href="#" onclick="logout()">Logout</a>
+    </nav>
+
+    <h1>Pengaturan Sirkulasi</h1>
+
+    <form id="formPengaturan">
+        <div>
+            <label>Durasi Pinjam Default (hari)</label>
+            <input type="number" id="durasi_pinjam_default" min="1" required>
+        </div>
+        <div>
+            <label>Maksimal Buku per Orang</label>
+            <input type="number" id="maks_buku_per_orang" min="1" required>
+        </div>
+        <button type="submit">Simpan Pengaturan</button>
+        <div id="pesanSukses"></div>
+    </form>
+
+    <script>
+        if (localStorage.getItem('adminLoggedIn') !== 'true') {
+            window.location.href = 'login.html';
+        }
+
+        const API_BASE = 'http://127.0.0.1:5000/api';
+
+        async function muatPengaturan() {
+            const res = await fetch(`${API_BASE}/pengaturan`);
+            const data = await res.json();
+            document.getElementById('durasi_pinjam_default').value = data.durasi_pinjam_default;
+            document.getElementById('maks_buku_per_orang').value = data.maks_buku_per_orang;
+        }
+
+        document.getElementById('formPengaturan').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const durasi = document.getElementById('durasi_pinjam_default').value;
+            const maks = document.getElementById('maks_buku_per_orang').value;
+
+            await fetch(`${API_BASE}/pengaturan/durasi_pinjam_default`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value: durasi })
+            });
+            await fetch(`${API_BASE}/pengaturan/maks_buku_per_orang`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value: maks })
+            });
+
+            document.getElementById('pesanSukses').textContent = 'Pengaturan berhasil disimpan!';
+            setTimeout(() => document.getElementById('pesanSukses').textContent = '', 3000);
+        });
+
+        function logout() {
+            localStorage.removeItem('adminLoggedIn');
+            localStorage.removeItem('adminUsername');
+            window.location.href = 'login.html';
+        }
+
+        muatPengaturan();
+    </script>
+</body>
+</html>
