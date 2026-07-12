@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Perpustakaan Sudagaran</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        nav { margin-bottom: 20px; }
+        nav a { margin-right: 15px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 20px; }
+        .card { border: 1px solid #ccc; border-radius: 8px; padding: 16px; text-align: center; }
+        .card .angka { font-size: 32px; font-weight: bold; }
+        .card .label { color: #555; margin-top: 4px; }
+        .overdue { border-color: #d9534f; }
+        .overdue .angka { color: #d9534f; }
+        table { border-collapse: collapse; width: 100%; margin-top: 30px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">Koleksi</a>
+        <a href="anggota.html">Anggota</a>
+        <a href="sirkulasi.html">Sirkulasi</a>
+        <a href="kunjungan.html">Kunjungan</a>
+        <a href="dashboard.html">Dashboard</a>
+    </nav>
+
+    <h1>Dashboard Perpustakaan Sudagaran</h1>
+
+    <div class="grid">
+        <div class="card"><div class="angka" id="totalKoleksi">-</div><div class="label">Total Koleksi</div></div>
+        <div class="card"><div class="angka" id="totalAnggota">-</div><div class="label">Total Anggota</div></div>
+        <div class="card"><div class="angka" id="sedangDipinjam">-</div><div class="label">Sedang Dipinjam</div></div>
+        <div class="card overdue"><div class="angka" id="overdue">-</div><div class="label">Terlambat (Overdue)</div></div>
+        <div class="card"><div class="angka" id="kunjunganHariIni">-</div><div class="label">Kunjungan Hari Ini</div></div>
+    </div>
+
+    <h2>Buku yang Sedang Dipinjam</h2>
+    <table>
+        <thead><tr><th>Judul</th><th>Peminjam</th><th>Jatuh Tempo</th><th>Status</th></tr></thead>
+        <tbody id="tabelDipinjam"></tbody>
+    </table>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:5000/api';
+
+        function hariIni() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        async function muatDashboard() {
+            const [koleksi, anggota, sirkulasi, kunjungan] = await Promise.all([
+                fetch(`${API_BASE}/koleksi`).then(r => r.json()),
+                fetch(`${API_BASE}/anggota`).then(r => r.json()),
+                fetch(`${API_BASE}/sirkulasi`).then(r => r.json()),
+                fetch(`${API_BASE}/kunjungan`).then(r => r.json())
+            ]);
+
+            const today = hariIni();
+            const sedangDipinjam = sirkulasi.filter(s => s.status === 'dipinjam');
+            const overdue = sedangDipinjam.filter(s => s.tanggal_jatuh_tempo < today);
+            const kunjunganHariIni = kunjungan.filter(k => k.tanggal_kunjungan === today);
+
+            document.getElementById('totalKoleksi').textContent = koleksi.length;
+            document.getElementById('totalAnggota').textContent = anggota.length;
+            document.getElementById('sedangDipinjam').textContent = sedangDipinjam.length;
+            document.getElementById('overdue').textContent = overdue.length;
+            document.getElementById('kunjunganHariIni').textContent = kunjunganHariIni.length;
+
+            const tbody = document.getElementById('tabelDipinjam');
+            tbody.innerHTML = '';
+            sedangDipinjam.forEach(s => {
+                const statusText = s.tanggal_jatuh_tempo < today ? 'Terlambat' : 'Dipinjam';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${s.judul}</td>
+                        <td>${s.nama}</td>
+                        <td>${s.tanggal_jatuh_tempo}</td>
+                        <td>${statusText}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        muatDashboard();
+    </script>
+</body>
+</html>
