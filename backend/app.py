@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import sqlite3
 from datetime import date, timedelta
+from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
 CORS(app)
@@ -15,6 +16,21 @@ def get_db_connection():
 @app.route('/')
 def home():
     return 'Perpustakaan Digital Sudagaran'
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    conn = get_db_connection()
+    admin = conn.execute('SELECT * FROM admin WHERE username=?', (username,)).fetchone()
+    conn.close()
+
+    if admin is None or not check_password_hash(admin['password_hash'], password):
+        return jsonify({'error': 'Username atau password salah'}), 401
+
+    return jsonify({'message': 'Login berhasil', 'username': admin['username']})
 
 # GET koleksi
 @app.route('/api/koleksi', methods=['GET'])

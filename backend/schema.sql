@@ -53,5 +53,11 @@ CREATE TABLE IF NOT EXISTS pengaturan (
     value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS admin (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL
+);
+
 INSERT OR IGNORE INTO pengaturan (key, value) VALUES ('durasi_pinjam_default', '7');
-INSERT OR IGNORE INTO pengaturan (key, value) VALUES ('maks_buku_per_orang', '3');b 
+INSERT OR IGNORE INTO pengaturan (key, value) VALUES ('maks_buku_per_orang', '3');
